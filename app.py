@@ -127,7 +127,7 @@ def generate_storyboard(api_key, article):
         model="deepseek-chat",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"分析文章：
+            {"role": "user", "content": f"分析文章：\n\n{article}"}
 
 {article}"}
         ],
