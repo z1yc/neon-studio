@@ -256,24 +256,49 @@ def generate_storyboard(api_key, article):
     )
     return json.loads(response.choices[0].message.content)
 
+# ============================================================
+# Kling API 修复版 - 使用正确的地址和格式
+# ============================================================
 def generate_video_task(kling_key, prompt, duration=5):
-    url = "https://api.klingai.com/v1/videos/generations"
+    """提交视频生成任务 - 使用正确的Kling API格式"""
+    # 正确的API地址
+    url = "https://api-beijing.klingai.com/image-to-video/kling-3.0"
     headers = {
         "Authorization": f"Bearer {kling_key}",
         "Content-Type": "application/json"
     }
+    
+    # 正确的参数格式（根据官方文档）
     data = {
-        "prompt": prompt,
-        "duration": duration,
-        "mode": "std",
-        "style": "anime"
+        "contents": [
+            {
+                "type": "prompt",
+                "text": f"{prompt}，3D动漫风格，电影级画质"
+            },
+            {
+                "type": "first_frame",
+                "url": "https://p2-kling.klingai.com/kcdn/cdn-kcdn112452/kling-tob-release_note/image_25.png"
+            }
+        ],
+        "settings": {
+            "resolution": "720p",
+            "duration": duration,
+            "audio": "off",
+            "multi_shot": False
+        }
     }
+    
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
         result = response.json()
-        print(f"Kling响应: {result}")
+        print(f"Kling响应: {json.dumps(result, ensure_ascii=False)}")
         if result.get("code") == 0:
-            return result.get("data", {}).get("task_id")
+            task_id = result.get("data", {}).get("id")
+            if task_id:
+                return task_id
+            else:
+                st.error(f"❌ 未获取到任务ID")
+                return None
         else:
             st.error(f"❌ Kling错误: {result.get('message', '未知错误')}")
             return None
@@ -282,8 +307,10 @@ def generate_video_task(kling_key, prompt, duration=5):
         return None
 
 def poll_video_status(kling_key, task_id):
-    url = f"https://api.klingai.com/v1/videos/generations/{task_id}"
+    """查询任务状态"""
+    url = f"https://api-beijing.klingai.com/image-to-video/kling-3.0/{task_id}"
     headers = {"Authorization": f"Bearer {kling_key}"}
+    
     for i in range(30):
         try:
             response = requests.get(url, headers=headers, timeout=10)
@@ -295,11 +322,18 @@ def poll_video_status(kling_key, task_id):
                     videos = data.get("videos", [])
                     if videos:
                         return videos[0].get("url")
+                    # 尝试从task_result获取
+                    task_result = data.get("task_result", {})
+                    if task_result.get("videos"):
+                        return task_result["videos"][0].get("url")
                     return None
                 elif status == "failed":
                     st.error(f"生成失败: {data.get('fail_reason', '未知')}")
                     return None
-            time.sleep(3)
+                else:
+                    time.sleep(3)
+            else:
+                time.sleep(3)
         except:
             time.sleep(3)
     return None
