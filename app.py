@@ -28,9 +28,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 头部
-# ==========================================
 col_logo, col_status = st.columns([3, 1])
 with col_logo:
     st.markdown('<div class="neon-title">⚡ NEON STUDIO</div><div style="color:rgba(255,255,255,0.4);font-size:0.9rem;letter-spacing:4px;">AI 动漫制作系统 · 3D国漫工业级</div>', unsafe_allow_html=True)
@@ -39,27 +36,21 @@ with col_status:
 
 st.markdown('<div class="divider-line"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 侧边栏 - API设置
-# ==========================================
 with st.sidebar:
     st.markdown("### 🔑 API密钥设置")
-    deepseek_key = st.text_input("DeepSeek API Key", type="password", placeholder="sk-...", help="在 platform.deepseek.com 获取")
-    kling_key = st.text_input("Kling AI API Key", type="password", placeholder="api-key-kling-...", help="在 klingai.com 获取")
+    deepseek_key = st.text_input("DeepSeek API Key", type="password", placeholder="sk-...")
+    kling_key = st.text_input("Kling AI API Key", type="password", placeholder="api-key-kling-...")
     st.markdown("---")
     st.markdown("### ⚡ 系统状态")
     if deepseek_key:
-        st.success("✅ DeepSeek 已连接")
+        st.success("DeepSeek 已连接")
     else:
-        st.warning("⚠️ 请输入 DeepSeek API Key")
+        st.warning("请输入 DeepSeek API Key")
     if kling_key:
-        st.success("✅ Kling AI 已连接")
+        st.success("Kling AI 已连接")
     else:
-        st.warning("⚠️ 请输入 Kling AI API Key")
+        st.warning("请输入 Kling AI API Key")
 
-# ==========================================
-# 精细化电影级分镜指令
-# ==========================================
 SYSTEM_PROMPT = """
 你是一位顶级3D国漫电影导演与视觉总监，拥有20年动画制作与视觉开发经验。你的任务是将用户提供的文章，转化为一套**工业化标准的分镜脚本**，包含完整的视觉语言、表演指导、摄影方案和后期制作说明。输出必须严格遵循以下格式，以JSON呈现。
 
@@ -251,11 +242,7 @@ SYSTEM_PROMPT = """
 请确保每个镜头都包含上述所有相关字段，确保视觉描述的精确性和可执行性。
 """
 
-# ==========================================
-# 核心功能函数
-# ==========================================
 def generate_storyboard(api_key, article):
-    """调用DeepSeek生成精细化分镜"""
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     response = client.chat.completions.create(
         model="deepseek-chat",
@@ -269,7 +256,6 @@ def generate_storyboard(api_key, article):
     return json.loads(response.choices[0].message.content)
 
 def generate_video(kling_key, prompt, duration=5):
-    """调用Kling AI生成视频"""
     url = "https://api.klingai.com/v1/videos/generations"
     headers = {
         "Authorization": f"Bearer {kling_key}",
@@ -291,7 +277,6 @@ def generate_video(kling_key, prompt, duration=5):
         return None
 
 def render_character_designs(characters):
-    """渲染角色三视图"""
     if not characters:
         return
     st.markdown("### 🎨 角色三视图设定")
@@ -319,7 +304,6 @@ def render_character_designs(characters):
             st.markdown(f"**💪 核心动机**：{design.get('core_motivation', '')}")
 
 def render_shot(shot):
-    """渲染单个精细化分镜"""
     st.markdown(f"""
     <div class="shot-card">
         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -402,123 +386,98 @@ def render_shot(shot):
     
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ==========================================
-# 主界面 - Tab布局
-# ==========================================
 tab1, tab2 = st.tabs(["🎬 分镜生成", "🎥 视频生成"])
 
-# ========== Tab 1: 分镜生成 ==========
 with tab1:
     col_input, col_output = st.columns([1, 1])
-    
     with col_input:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        article_content = st.text_area(
-            "📝 输入文章",
-            height=350,
-            placeholder="粘贴你的故事、剧本或文章...\n\nAI将自动提取角色和情节生成工业级分镜。",
-            label_visibility="collapsed"
-        )
+        article_content = st.text_area("📝 输入文章", height=350, placeholder="粘贴你的故事、剧本或文章...", label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        generate_btn = st.button(
-            "⚡ 生成精细化分镜",
-            disabled=not (deepseek_key and article_content)
-        )
-        
+        generate_btn = st.button("⚡ 生成精细化分镜", disabled=not (deepseek_key and article_content))
         if not deepseek_key:
             st.caption("⚠️ 请在左侧输入 DeepSeek API Key")
         elif not article_content:
             st.caption("📌 请输入文章内容")
-    
     with col_output:
         st.markdown("### 📊 生成结果")
-        
         if generate_btn and deepseek_key and article_content:
             try:
                 with st.spinner("🧠 AI导演正在构思精细化分镜..."):
                     result = generate_storyboard(deepseek_key, article_content)
-                
                 st.success("✅ 精细化分镜生成完成！")
-                
                 shots = result.get("shots", [])
                 characters = result.get("character_designs", {})
-                
-                # 统计信息
                 c1, c2, c3 = st.columns(3)
                 c1.markdown(f'<div style="text-align:center;"><div class="stat-number">{len(shots)}</div><div style="color:rgba(255,255,255,0.3);">分镜镜头</div></div>', unsafe_allow_html=True)
                 c2.markdown(f'<div style="text-align:center;"><div class="stat-number">{len(characters)}</div><div style="color:rgba(255,255,255,0.3);">角色设定</div></div>', unsafe_allow_html=True)
                 c3.markdown(f'<div style="text-align:center;"><div class="stat-number">{sum(s.get("duration_seconds",0) for s in shots)}s</div><div style="color:rgba(255,255,255,0.3);">预估总时长</div></div>', unsafe_allow_html=True)
-                
-                # 渲染角色三视图
                 if characters:
                     st.markdown("---")
                     render_character_designs(characters)
-                
-                # 渲染分镜脚本
                 if shots:
                     st.markdown("---")
                     st.markdown("### 🎬 精细化分镜脚本")
                     for shot in shots:
                         render_shot(shot)
                         st.markdown("---")
-                
-                # 下载按钮
                 st.download_button(
                     label="📥 下载完整分镜数据 (JSON)",
                     data=json.dumps(result, ensure_ascii=False, indent=2),
                     file_name=f"storyboard_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                     mime="application/json"
                 )
-                
                 st.session_state['storyboard_result'] = result
-                
             except Exception as e:
                 st.error(f"⚠️ 生成失败：{e}")
                 st.info("请检查：API密钥是否正确，DeepSeek账户是否有余额")
         else:
             st.markdown('<div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.12);"><div style="font-size:3rem;">◈</div><div>等待输入素材</div></div>', unsafe_allow_html=True)
 
-# ========== Tab 2: 视频生成 ==========
 with tab2:
     st.markdown("### 🎥 从分镜生成视频")
     st.caption("选择分镜中的镜头，一键调用Kling AI生成视频")
-    
     if 'storyboard_result' in st.session_state:
         shots = st.session_state['storyboard_result'].get('shots', [])
-        
         if shots:
-            selected_shots = st.multiselect(
+            shot_options = []
+            for s in shots:
+                shot_num = s.get('shot_number', 0)
+                desc = s.get('visual_description', '')[:30]
+                shot_options.append(f"镜头 {shot_num}: {desc}...")
+            selected = st.multiselect(
                 "选择要生成视频的镜头",
-                options=[f"镜头 {s.get('shot_number')}: {s.get('visual_description', '')[:30]}..." for s in shots],
-                default=[f"镜头 {shots[0].get('shot_number')}: {shots[0].get('visual_description', '')[:30]}..."] if shots else []
+                options=shot_options,
+                default=[shot_options[0]] if shot_options else []
             )
-            
-            if selected_shots and kling_key:
+            if selected and kling_key:
                 if st.button("🎬 生成选中视频"):
                     with st.spinner("⏳ 正在生成视频..."):
-                        for selection in selected_shots:
-                            idx = int(selection.split(" ")[1]) - 1
-                            shot = shots[idx]
-                            desc = shot.get('visual_description', '')
-                            
-                            task_id = generate_video(kling_key, desc, shot.get('duration_seconds', 5))
-                            if task_id:
-                                st.success(f"✅ 镜头 {idx+1} 已提交，任务ID: {task_id}")
-                            else:
-                                st.error(f"❌ 镜头 {idx+1} 提交失败")
+                        for sel in selected:
+                            parts = sel.split(":")
+                            if len(parts) >= 2:
+                                idx_str = parts[0].replace("镜头 ", "").strip()
+                                try:
+                                    idx = int(idx_str) - 1
+                                    if 0 <= idx < len(shots):
+                                        shot = shots[idx]
+                                        desc = shot.get('visual_description', '')
+                                        task_id = generate_video(kling_key, desc, shot.get('duration_seconds', 5))
+                                        if task_id:
+                                            st.success(f"✅ 镜头 {idx+1} 已提交，任务ID: {task_id}")
+                                        else:
+                                            st.error(f"❌ 镜头 {idx+1} 提交失败")
+                                except ValueError:
+                                    st.error(f"❌ 无法解析镜头编号: {sel}")
             elif not kling_key:
                 st.warning("⚠️ 请在左侧输入 Kling AI API Key")
-            elif not selected_shots:
+            elif not selected:
                 st.info("📌 请选择至少一个镜头")
         else:
             st.info("📌 请先在「分镜生成」tab生成分镜脚本")
     else:
         st.info("📌 请先在「分镜生成」tab生成分镜脚本")
 
-# ==========================================
-# 页脚
-# ==========================================
 st.markdown('<div class="divider-line"></div>', unsafe_allow_html=True)
 st.markdown("""
 <div style="display: flex; justify-content: space-between; align-items: center; color: rgba(255,255,255,0.12); font-size: 0.6rem; letter-spacing: 1px; padding: 8px 0;">
