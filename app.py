@@ -49,9 +49,6 @@ with st.sidebar:
     else:
         st.warning("⚠️ 请输入 Kling AI API Key")
 
-# ============================================================
-# 精细化电影级分镜指令（完整版）
-# ============================================================
 SYSTEM_PROMPT = """
 你是一位顶级3D国漫电影导演与视觉总监，拥有20年动画制作与视觉开发经验。你的任务是将用户提供的文章，转化为一套**工业化标准的分镜脚本**，包含完整的视觉语言、表演指导、摄影方案和后期制作说明。输出必须严格遵循以下格式，以JSON呈现。
 
@@ -256,18 +253,12 @@ def generate_storyboard(api_key, article):
     )
     return json.loads(response.choices[0].message.content)
 
-# ============================================================
-# Kling API - 带详细错误日志
-# ============================================================
 def generate_video_task(kling_key, prompt, duration=5):
-    """提交视频生成任务 - 显示详细错误"""
-    
     url = "https://api-beijing.klingai.com/image-to-video/kling-3.0"
     headers = {
         "Authorization": f"Bearer {kling_key}",
         "Content-Type": "application/json"
     }
-    
     data = {
         "contents": [
             {
@@ -286,14 +277,10 @@ def generate_video_task(kling_key, prompt, duration=5):
             "multi_shot": False
         }
     }
-    
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
         result = response.json()
-        
-        # 显示完整响应在界面上
         st.code(json.dumps(result, ensure_ascii=False, indent=2), language="json")
-        
         if result.get("code") == 0:
             task_id = result.get("data", {}).get("id")
             if task_id:
@@ -309,8 +296,9 @@ def generate_video_task(kling_key, prompt, duration=5):
         return None
 
 def poll_video_status(kling_key, task_id):
-    """查询任务状态"""
-    url = f"https://api-beijing.klingai.com/image-to-video/kling-3.0/{task_id}"
+    """查询任务状态 - 使用正确的地址"""
+    # 正确的查询地址
+    url = f"https://api-beijing.klingai.com/v1/videos/generations/{task_id}"
     headers = {"Authorization": f"Bearer {kling_key}"}
     
     for i in range(40):
@@ -326,6 +314,9 @@ def poll_video_status(kling_key, task_id):
                     videos = data.get("videos", [])
                     if videos:
                         return videos[0].get("url")
+                    task_result = data.get("task_result", {})
+                    if task_result.get("videos"):
+                        return task_result["videos"][0].get("url")
                     return None
                 elif status == "failed":
                     st.error(f"❌ 生成失败: {data.get('fail_reason', '未知')}")
@@ -334,7 +325,7 @@ def poll_video_status(kling_key, task_id):
                     st.info(f"⏳ 生成中... ({status})")
                     time.sleep(5)
             else:
-                st.warning(f"⚠️ 查询响应异常: {result}")
+                st.warning(f"⚠️ 查询异常: {result}")
                 time.sleep(3)
         except Exception as e:
             st.warning(f"⚠️ 查询请求异常: {e}")
