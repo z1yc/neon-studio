@@ -257,18 +257,17 @@ def generate_storyboard(api_key, article):
     return json.loads(response.choices[0].message.content)
 
 # ============================================================
-# Kling API 修复版 - 使用正确的地址和格式
+# Kling API - 带详细错误日志
 # ============================================================
 def generate_video_task(kling_key, prompt, duration=5):
-    """提交视频生成任务 - 使用正确的Kling API格式"""
-    # 正确的API地址
+    """提交视频生成任务 - 显示详细错误"""
+    
     url = "https://api-beijing.klingai.com/image-to-video/kling-3.0"
     headers = {
         "Authorization": f"Bearer {kling_key}",
         "Content-Type": "application/json"
     }
     
-    # 正确的参数格式（根据官方文档）
     data = {
         "contents": [
             {
@@ -291,19 +290,22 @@ def generate_video_task(kling_key, prompt, duration=5):
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
         result = response.json()
-        print(f"Kling响应: {json.dumps(result, ensure_ascii=False)}")
+        
+        # 显示完整响应在界面上
+        st.code(json.dumps(result, ensure_ascii=False, indent=2), language="json")
+        
         if result.get("code") == 0:
             task_id = result.get("data", {}).get("id")
             if task_id:
                 return task_id
             else:
-                st.error(f"❌ 未获取到任务ID")
+                st.error(f"❌ 响应中没有任务ID: {result}")
                 return None
         else:
-            st.error(f"❌ Kling错误: {result.get('message', '未知错误')}")
+            st.error(f"❌ Kling API错误 (code: {result.get('code')}): {result.get('message', '未知错误')}")
             return None
     except Exception as e:
-        st.error(f"❌ 请求异常: {e}")
+        st.error(f"❌ 网络请求异常: {e}")
         return None
 
 def poll_video_status(kling_key, task_id):
@@ -311,31 +313,34 @@ def poll_video_status(kling_key, task_id):
     url = f"https://api-beijing.klingai.com/image-to-video/kling-3.0/{task_id}"
     headers = {"Authorization": f"Bearer {kling_key}"}
     
-    for i in range(30):
+    for i in range(40):
         try:
             response = requests.get(url, headers=headers, timeout=10)
             result = response.json()
+            
             if result.get("code") == 0:
                 data = result.get("data", {})
                 status = data.get("status")
+                
                 if status == "succeed":
                     videos = data.get("videos", [])
                     if videos:
                         return videos[0].get("url")
-                    # 尝试从task_result获取
-                    task_result = data.get("task_result", {})
-                    if task_result.get("videos"):
-                        return task_result["videos"][0].get("url")
                     return None
                 elif status == "failed":
-                    st.error(f"生成失败: {data.get('fail_reason', '未知')}")
+                    st.error(f"❌ 生成失败: {data.get('fail_reason', '未知')}")
                     return None
                 else:
-                    time.sleep(3)
+                    st.info(f"⏳ 生成中... ({status})")
+                    time.sleep(5)
             else:
+                st.warning(f"⚠️ 查询响应异常: {result}")
                 time.sleep(3)
-        except:
+        except Exception as e:
+            st.warning(f"⚠️ 查询请求异常: {e}")
             time.sleep(3)
+    
+    st.error("⏰ 超时，请在Kling控制台查看任务状态")
     return None
 
 def render_character_designs(characters):
@@ -521,8 +526,10 @@ with tab2:
                                     shot = shots[idx]
                                     desc = shot.get('visual_description', '')
                                     duration = shot.get('duration_seconds', 5)
+                                    st.info(f"📤 正在提交镜头 {idx+1}...")
                                     task_id = generate_video_task(kling_key, desc, duration)
                                     if task_id:
+                                        st.success(f"✅ 镜头 {idx+1} 已提交，任务ID: {task_id}")
                                         with st.spinner(f"⏳ 镜头 {idx+1} 生成中..."):
                                             video_url = poll_video_status(kling_key, task_id)
                                             if video_url:
@@ -532,8 +539,8 @@ with tab2:
                                                 st.error(f"❌ 镜头 {idx+1} 生成失败")
                                     else:
                                         st.error(f"❌ 镜头 {idx+1} 提交失败")
-                            except:
-                                st.error(f"❌ 无法解析: {sel}")
+                            except Exception as e:
+                                st.error(f"❌ 处理异常: {e}")
 
 st.markdown('<div class="divider-line"></div>', unsafe_allow_html=True)
 st.markdown("""
